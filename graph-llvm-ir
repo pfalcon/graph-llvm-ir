@@ -1,0 +1,123 @@
+#!/usr/bin/env python
+import sys
+
+from llvm.core import *
+import llvm
+
+
+USE_CLUSTERS = 1
+CLUSTER_EDGES = 1
+INV_NODES = 1
+
+
+with open(sys.argv[1]) as asm:
+    mod = Module.from_assembly(asm)
+
+
+tmp_i = 1
+def number_tmps(mod):
+    global tmp_i
+    for f in mod.functions:
+#        print `f`
+        for b in f.basic_blocks:
+#            print "BB name:", b.name
+            for i in b.instructions:
+#                print i
+                if not i.name and i.type != Type.void():
+                    i.name = "t%d" % tmp_i
+                    tmp_i += 1
+
+
+number_tmps(mod)
+
+
+class Graph:
+
+    def __init__(self, f):
+        self.edges = []
+        self.f = f
+
+    def start_graph(self):
+        print "digraph G {"
+        print "compound=true"
+        print 'label="Black edges - dataflow, red edges - control flow"'
+
+    def edge(self, fro, to, extra=""):
+        self.edges.append("%s -> %s%s" % (fro, to, extra))
+
+    def declare_clusters(self):
+        if USE_CLUSTERS:
+            # Pre-allocate label nodes to subgraphs, otherwise Graphviz puts them to wrong subgraphs
+                for b in self.f.basic_blocks:
+                    if not INV_NODES:
+                        print "subgraph cluster_%s {" % b.name
+                    if not CLUSTER_EDGES:
+                        print '%s [label="label: %s"]' % (b.name, b.name)
+                    elif INV_NODES:
+                        print '%s [shape=point height=0.02 width=0.02 color=red fixedsize=true]' % (b.name)
+                    if not INV_NODES:
+                        print "}"
+                print
+
+
+    def render(self):
+#        print `f`
+        self.start_graph()
+        self.declare_clusters()
+        lab = 1
+        for b in self.f.basic_blocks:
+            self.edges = []
+            if USE_CLUSTERS:
+                print "subgraph cluster_%s {" % b.name
+                print "label=%s" % b.name
+            if not CLUSTER_EDGES:
+                print '%s [label="label: %s"]' % (b.name, b.name)
+#           elif INV_NODES:
+#               print '%s [shape=point]' % (b.name)
+
+            if not CLUSTER_EDGES or INV_NODES:
+                attr = "[color=red]"
+                if b.name == "entry":
+                    attr += "[weight=5]"
+                if CLUSTER_EDGES:
+                    attr += "[lhead=cluster_%s]" % b.name
+                self.edge(b.name, b.instructions[0].name, attr)
+
+            last_inst_name = None
+            for i in b.instructions:
+                n = i.name
+                if not n:
+                    n = "_%d" % lab
+                    lab += 1
+                print '%s [label="%s"]' % (n, i)
+        #            print i.opcode_name
+                if i.opcode_name == "br" and len(i.operands) == 1:
+                    self.edge(last_inst_name, n, "[color=red]")
+
+                for a in i.operands:
+                        if isinstance(a, Constant) and not a.name:
+                            arg_val = '"%s"' % a
+                        else:
+                            arg_val = a.name
+                        if i.opcode_name == "br" and type(a) is BasicBlock:
+                            # For jump targets, we jump from current node to label (arg)
+                            if CLUSTER_EDGES and not INV_NODES:
+                                arg_val = a.instructions[0].name
+                            attrs = "[color=red]"
+                            if CLUSTER_EDGES:
+                                attrs += "[color=red][lhead=cluster_%s][arrowhead=none]" % a.name
+                            self.edge(n, arg_val, attrs)
+                        else:
+                            # For data, flow is from opearnd to operation
+                            self.edge(arg_val, n)
+                last_inst_name = n
+            if USE_CLUSTERS:
+                print "}"
+            for e in self.edges:
+                print e
+            print
+        print "}"
+
+for f in mod.functions:
+    g = Graph(f)
+    g.render()
