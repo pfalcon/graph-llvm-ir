@@ -33,14 +33,18 @@ number_tmps(mod)
 
 class Graph:
 
-    def __init__(self, f):
+    def __init__(self, f, out):
         self.edges = []
         self.f = f
+        self.out = out
+
+    def write(self, line=""):
+        self.out.write(line + "\n")
 
     def start_graph(self):
-        print "digraph G {"
-        print "compound=true"
-        print 'label="Black edges - dataflow, red edges - control flow"'
+        self.write("digraph G {")
+        self.write("compound=true")
+        self.write('label="Black edges - dataflow, red edges - control flow"')
 
     def edge(self, fro, to, extra=""):
         self.edges.append("%s -> %s%s" % (fro, to, extra))
@@ -50,14 +54,14 @@ class Graph:
             # Pre-allocate label nodes to subgraphs, otherwise Graphviz puts them to wrong subgraphs
                 for b in self.f.basic_blocks:
                     if not INV_NODES:
-                        print "subgraph cluster_%s {" % b.name
+                        self.write("subgraph cluster_%s {" % b.name)
                     if not CLUSTER_EDGES:
-                        print '%s [label="label: %s"]' % (b.name, b.name)
+                        self.write('%s [label="label: %s"]' % (b.name, b.name))
                     elif INV_NODES:
-                        print '%s [shape=point height=0.02 width=0.02 color=red fixedsize=true]' % (b.name)
+                        self.write('%s [shape=point height=0.02 width=0.02 color=red fixedsize=true]' % (b.name))
                     if not INV_NODES:
-                        print "}"
-                print
+                        self.write("}")
+                self.write()
 
 
     def render(self):
@@ -68,12 +72,12 @@ class Graph:
         for b in self.f.basic_blocks:
             self.edges = []
             if USE_CLUSTERS:
-                print "subgraph cluster_%s {" % b.name
-                print "label=%s" % b.name
+                self.write("subgraph cluster_%s {" % b.name)
+                self.write("label=%s" % b.name)
             if not CLUSTER_EDGES:
-                print '%s [label="label: %s"]' % (b.name, b.name)
+                self.write('%s [label="label: %s"]' % (b.name, b.name))
 #           elif INV_NODES:
-#               print '%s [shape=point]' % (b.name)
+#               self.write('%s [shape=point]' % (b.name))
 
             if not CLUSTER_EDGES or INV_NODES:
                 attr = "[color=red]"
@@ -89,8 +93,7 @@ class Graph:
                 if not n:
                     n = "_%d" % lab
                     lab += 1
-                print '%s [label="%s"]' % (n, i)
-        #            print i.opcode_name
+                self.write('%s [label="%s"]' % (n, i))
                 if i.opcode_name == "br" and len(i.operands) == 1:
                     self.edge(last_inst_name, n, "[color=red]")
 
@@ -112,12 +115,16 @@ class Graph:
                             self.edge(arg_val, n)
                 last_inst_name = n
             if USE_CLUSTERS:
-                print "}"
+                self.write("}")
             for e in self.edges:
-                print e
-            print
-        print "}"
+                self.write(e)
+            self.write()
+        self.write("}")
+
 
 for f in mod.functions:
-    g = Graph(f)
-    g.render()
+    if not f.is_declaration:
+        print "Writing %s.dot" % f.name
+        with open(f.name + ".dot", "w") as out:
+            g = Graph(f, out)
+            g.render()
