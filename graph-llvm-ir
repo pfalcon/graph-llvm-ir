@@ -49,16 +49,23 @@ class Graph:
     def edge(self, fro, to, extra=""):
         self.edges.append("%s -> %s%s" % (fro, to, extra))
 
+    @staticmethod
+    def block_name(b):
+        if b.name:
+            return b.name
+        return "unk"
+
     def declare_clusters(self):
         if USE_CLUSTERS:
             # Pre-allocate label nodes to subgraphs, otherwise Graphviz puts them to wrong subgraphs
                 for b in self.f.basic_blocks:
+                    name = self.block_name(b)
                     if not INV_NODES:
-                        self.write("subgraph cluster_%s {" % b.name)
+                        self.write("subgraph cluster_%s {" % name)
                     if not CLUSTER_EDGES:
-                        self.write('%s [label="label: %s"]' % (b.name, b.name))
+                        self.write('%s [label="label: %s"]' % (name, name))
                     elif INV_NODES:
-                        self.write('%s [shape=point height=0.02 width=0.02 color=red fixedsize=true]' % (b.name))
+                        self.write('%s [shape=point height=0.02 width=0.02 color=red fixedsize=true]' % name)
                     if not INV_NODES:
                         self.write("}")
                 self.write()
@@ -70,12 +77,13 @@ class Graph:
         self.declare_clusters()
         lab = 1
         for b in self.f.basic_blocks:
+            block_name = self.block_name(b)
             self.edges = []
             if USE_CLUSTERS:
-                self.write("subgraph cluster_%s {" % b.name)
-                self.write("label=%s" % b.name)
+                self.write("subgraph cluster_%s {" % block_name)
+                self.write("label=%s" % block_name)
             if not CLUSTER_EDGES:
-                self.write('%s [label="label: %s"]' % (b.name, b.name))
+                self.write('%s [label="label: %s"]' % (block_name, block_name))
 #           elif INV_NODES:
 #               self.write('%s [shape=point]' % (b.name))
 
@@ -84,8 +92,8 @@ class Graph:
                 if b.name == "entry":
                     attr += "[weight=5]"
                 if CLUSTER_EDGES:
-                    attr += "[lhead=cluster_%s]" % b.name
-                self.edge(b.name, b.instructions[0].name, attr)
+                    attr += "[lhead=cluster_%s]" % block_name
+                self.edge(block_name, b.instructions[0].name, attr)
 
             last_inst_name = None
             for i in b.instructions:
