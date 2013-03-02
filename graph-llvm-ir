@@ -118,7 +118,17 @@ class Graph:
                     attr += "[weight=5]"
                 if CLUSTER_EDGES:
                     attr += "[lhead=cluster_%s]" % block_name
-                self.edge(block_name, b.instructions[0].name, attr)
+                if EXPLICIT_CONTROL:
+                    self.edge(block_name, b.instructions[0].name, attr)
+
+            if CONTROL_BETWEEN_DATAFLOW_TREES:
+                last_void_inst = block_name
+                for i in b.instructions:
+                    if i.type == Type.void():
+                        n = self.instr_name(i)
+#                        self.edge(last_void_inst, n, "[color=blue]")
+                        self.edge(n, last_void_inst, "[color=blue dir=back]")
+                        last_void_inst = n
 
             last_inst_name = None
             for i in b.instructions:
