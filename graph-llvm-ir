@@ -12,6 +12,13 @@ INV_NODES = 1
 
 tmp_i = 1
 def number_tmps(mod):
+    """This function establishes explicit names for nameless numeric
+    temporaries in IR. It also should give human-readable IDs to each
+    statement in IR. Actually, as this is SSA, it uses result temporary
+    name as an ID for statement. And fails here, because void-typed
+    statements do not allow to set temporary name. So, this needs rework,
+    and so far worked around during graph construction.
+    """
     global tmp_i
     for f in mod.functions:
 #        print `f`
