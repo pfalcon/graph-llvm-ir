@@ -39,7 +39,9 @@ class Graph:
         self.f = f
         self.out = out
         self.anon_bblock_cnt = 0
+        self.anon_bblock_names = {}
         self.void_instr_cnt = 0
+        self.void_instr_names = {}
 
     def write(self, line=""):
         self.out.write(line + "\n")
@@ -57,17 +59,24 @@ class Graph:
         if label if absent."""
         if b.name:
             return b.name
+        if b in self.anon_bblock_names:
+            return self.anon_bblock_names[b]
         self.anon_bblock_cnt += 1
-        return "unk_block_%d" % self.anon_bblock_cnt
+        n = "unk_block_%d" % self.anon_bblock_cnt
+        self.anon_bblock_names[b] = n
+        return n
 
     def instr_name(self, i):
         """Returns instruction name, for which result variable name is used.
         If result variable name is absent (void statement), make up name.
         """
+        if i in self.void_instr_names:
+            return self.void_instr_names[i]
         n = i.name
         if not n:
             self.void_instr_cnt += 1
             n = "_%d" % self.void_instr_cnt
+            self.void_instr_names[i] = n
         return n
 
     def declare_clusters(self):
