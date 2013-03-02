@@ -95,7 +95,8 @@ class Graph:
             # Pre-allocate label nodes to subgraphs, otherwise Graphviz puts them to wrong subgraphs
                 for b in self.f.basic_blocks:
                     name = self.block_name(b)
-                    if not self.options.block_edges_helpers:
+#                    if not self.options.block_edges_helpers:
+                    if 1:
                         self.write("subgraph cluster_%s {" % name)
 
                     if not self.options.block_edges:
@@ -103,7 +104,8 @@ class Graph:
                     elif self.options.block_edges_helpers:
                         self.write('%s [shape=point height=0.02 width=0.02 color=red fixedsize=true]' % name)
 
-                    if not self.options.block_edges_helpers:
+#                    if not self.options.block_edges_helpers:
+                    if 1:
                         self.write("}")
                 self.write()
 
