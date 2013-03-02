@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 import sys
+import optparse
 
 from llvm.core import *
 import llvm
 
 
-USE_CLUSTERS = 1
-CLUSTER_EDGES = 1
+USE_CLUSTERS = 0
+CLUSTER_EDGES = 0
 INV_NODES = 1
-EXPLICIT_CONTROL = 1
+#EXPLICIT_CONTROL = 0
+CONTROL_BETWEEN_DATAFLOW_TREES = 1
 
 
 tmp_i = 1
@@ -34,10 +36,11 @@ def number_tmps(mod):
 
 class Graph:
 
-    def __init__(self, f, out):
-        self.edges = []
+    def __init__(self, f, out, options):
         self.f = f
         self.out = out
+        self.options = options
+        self.edges = []
         self.anon_bblock_cnt = 0
         self.anon_bblock_names = {}
         self.void_instr_cnt = 0
@@ -49,6 +52,8 @@ class Graph:
     def start_graph(self):
         self.write("digraph G {")
         self.write("compound=true")
+        if self.options.dag_control:
+            self.write("rankdir=BT")
         self.write('label="Black edges - dataflow, red edges - control flow"')
 
     def edge(self, fro, to, extra=""):
@@ -80,7 +85,7 @@ class Graph:
         return n
 
     def declare_clusters(self):
-        if USE_CLUSTERS:
+        if self.options.block:
             # Pre-allocate label nodes to subgraphs, otherwise Graphviz puts them to wrong subgraphs
                 for b in self.f.basic_blocks:
                     name = self.block_name(b)
@@ -103,11 +108,11 @@ class Graph:
         for b in self.f.basic_blocks:
             block_name = self.block_name(b)
             self.edges = []
-            if USE_CLUSTERS:
+            if self.options.block:
                 self.write("subgraph cluster_%s {" % block_name)
                 self.write("label=%s" % block_name)
-            if not CLUSTER_EDGES:
-                self.write('%s [label="label: %s"]' % (block_name, block_name))
+#            if not CLUSTER_EDGES:
+#                self.write('%s [label="label: %s"]' % (block_name, block_name))
 #           elif INV_NODES:
 #               self.write('%s [shape=point]' % (b.name))
 
@@ -118,10 +123,10 @@ class Graph:
                     attr += "[weight=5]"
                 if CLUSTER_EDGES:
                     attr += "[lhead=cluster_%s]" % block_name
-                if EXPLICIT_CONTROL:
+                if self.options.control:
                     self.edge(block_name, b.instructions[0].name, attr)
 
-            if CONTROL_BETWEEN_DATAFLOW_TREES:
+            if self.options.dag_control:
                 last_void_inst = block_name
                 for i in b.instructions:
                     if i.type == Type.void():
@@ -134,7 +139,7 @@ class Graph:
             for i in b.instructions:
                 n = self.instr_name(i)
                 self.write('%s [label="%s"]' % (n, i))
-                if EXPLICIT_CONTROL:
+                if self.options.control:
                     if last_inst_name:
                         self.edge(last_inst_name, n, "[color=red weight=2]")
                 else:
@@ -158,7 +163,7 @@ class Graph:
                             # For data, flow is from opearnd to operation
                             self.edge(arg_val, n)
                 last_inst_name = n
-            if USE_CLUSTERS:
+            if self.options.block:
                 self.write("}")
             for e in self.edges:
                 self.write(e)
@@ -167,7 +172,25 @@ class Graph:
 
 
 if __name__ == "__main__":
-    with open(sys.argv[1]) as asm:
+    optparser = optparse.OptionParser(usage="%prog <file.ll>")
+    optparser.add_option('-b', '--block',
+        action="store_true", default=False,
+        help="draw basic blocks as clusters (%default)")
+    optparser.add_option('-c', '--control',
+        action="store_true",
+        help="draw explicit control flow based on instruction order (default)")
+    optparser.add_option('', '--dag-control',
+        action="store_true",
+        help="analyze DAGs in a basic block and draw implied control flow among them (consider using --no-control)")
+
+    options, args = optparser.parse_args(sys.argv[1:])
+    if len(args) != 1:
+        optparser.error("Wrong number of arguments")
+
+    if not options.control and not options.dag_control:
+        options.control = True
+
+    with open(args[0]) as asm:
         mod = Module.from_assembly(asm)
 
     number_tmps(mod)
@@ -176,5 +199,5 @@ if __name__ == "__main__":
         if not f.is_declaration:
             print "Writing %s.dot" % f.name
             with open(f.name + ".dot", "w") as out:
-                g = Graph(f, out)
+                g = Graph(f, out, options)
                 g.render()
