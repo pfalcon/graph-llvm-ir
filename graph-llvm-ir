@@ -37,6 +37,7 @@ class Graph:
         self.edges = []
         self.f = f
         self.out = out
+        self.anon_bblock_cnt = 0
 
     def write(self, line=""):
         self.out.write(line + "\n")
@@ -49,11 +50,13 @@ class Graph:
     def edge(self, fro, to, extra=""):
         self.edges.append("%s -> %s%s" % (fro, to, extra))
 
-    @staticmethod
-    def block_name(b):
+    def block_name(self, b):
+        """Returns basic block name, i.e. its entry label, or made name
+        if label if absent."""
         if b.name:
             return b.name
-        return "unk"
+        self.anon_bblock_cnt += 1
+        return "unk_block_%d" % self.anon_bblock_cnt
 
     def declare_clusters(self):
         if USE_CLUSTERS:
