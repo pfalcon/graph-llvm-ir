@@ -8,6 +8,7 @@ import llvm
 USE_CLUSTERS = 1
 CLUSTER_EDGES = 1
 INV_NODES = 1
+EXPLICIT_CONTROL = 1
 
 
 tmp_i = 1
@@ -114,8 +115,12 @@ class Graph:
             for i in b.instructions:
                 n = self.instr_name(i)
                 self.write('%s [label="%s"]' % (n, i))
-                if i.opcode_name == "br" and len(i.operands) == 1:
-                    self.edge(last_inst_name, n, "[color=red]")
+                if EXPLICIT_CONTROL:
+                    if last_inst_name:
+                        self.edge(last_inst_name, n, "[color=red weight=2]")
+                else:
+                    if i.opcode_name == "br" and len(i.operands) == 1:
+                        self.edge(last_inst_name, n, "[color=red]")
 
                 for a in i.operands:
                         if isinstance(a, Constant) and not a.name:
