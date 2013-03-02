@@ -38,6 +38,7 @@ class Graph:
         self.f = f
         self.out = out
         self.anon_bblock_cnt = 0
+        self.void_instr_cnt = 0
 
     def write(self, line=""):
         self.out.write(line + "\n")
@@ -57,6 +58,16 @@ class Graph:
             return b.name
         self.anon_bblock_cnt += 1
         return "unk_block_%d" % self.anon_bblock_cnt
+
+    def instr_name(self, i):
+        """Returns instruction name, for which result variable name is used.
+        If result variable name is absent (void statement), make up name.
+        """
+        n = i.name
+        if not n:
+            self.void_instr_cnt += 1
+            n = "_%d" % self.void_instr_cnt
+        return n
 
     def declare_clusters(self):
         if USE_CLUSTERS:
@@ -90,6 +101,7 @@ class Graph:
 #           elif INV_NODES:
 #               self.write('%s [shape=point]' % (b.name))
 
+            # Create block entry label node and edge from it to first IR instruction
             if not CLUSTER_EDGES or INV_NODES:
                 attr = "[color=red]"
                 if b.name == "entry":
@@ -100,10 +112,7 @@ class Graph:
 
             last_inst_name = None
             for i in b.instructions:
-                n = i.name
-                if not n:
-                    n = "_%d" % lab
-                    lab += 1
+                n = self.instr_name(i)
                 self.write('%s [label="%s"]' % (n, i))
                 if i.opcode_name == "br" and len(i.operands) == 1:
                     self.edge(last_inst_name, n, "[color=red]")
