@@ -10,10 +10,6 @@ CLUSTER_EDGES = 1
 INV_NODES = 1
 
 
-with open(sys.argv[1]) as asm:
-    mod = Module.from_assembly(asm)
-
-
 tmp_i = 1
 def number_tmps(mod):
     global tmp_i
@@ -26,9 +22,6 @@ def number_tmps(mod):
                 if not i.name and i.type != Type.void():
                     i.name = "t%d" % tmp_i
                     tmp_i += 1
-
-
-number_tmps(mod)
 
 
 class Graph:
@@ -130,9 +123,15 @@ class Graph:
         self.write("}")
 
 
-for f in mod.functions:
-    if not f.is_declaration:
-        print "Writing %s.dot" % f.name
-        with open(f.name + ".dot", "w") as out:
-            g = Graph(f, out)
-            g.render()
+if __name__ == "__main__":
+    with open(sys.argv[1]) as asm:
+        mod = Module.from_assembly(asm)
+
+    number_tmps(mod)
+
+    for f in mod.functions:
+        if not f.is_declaration:
+            print "Writing %s.dot" % f.name
+            with open(f.name + ".dot", "w") as out:
+                g = Graph(f, out)
+                g.render()
