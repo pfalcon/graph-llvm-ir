@@ -6,11 +6,11 @@ from llvm.core import *
 import llvm
 
 
-USE_CLUSTERS = 0
+#USE_CLUSTERS = 0
 CLUSTER_EDGES = 0
-INV_NODES = 1
+INV_NODES = 0
 #EXPLICIT_CONTROL = 0
-CONTROL_BETWEEN_DATAFLOW_TREES = 1
+#CONTROL_BETWEEN_DATAFLOW_TREES = 1
 
 
 tmp_i = 1
@@ -54,6 +54,12 @@ class Graph:
         self.write("compound=true")
         if self.options.dag_control:
             self.write("rankdir=BT")
+        if self.options.block_edges and not INV_NODES:
+            # If we use cluster edges w/o intervening nodes, we need to bump
+            # rank (vertical) separation, because otherwise there's very
+            # little vert. space left to render edges after cutting out
+            # cluster rectangle
+            self.write("ranksep=1")
         self.write('label="Black edges - dataflow, red edges - control flow"')
 
     def edge(self, fro, to, extra=""):
@@ -91,10 +97,12 @@ class Graph:
                     name = self.block_name(b)
                     if not INV_NODES:
                         self.write("subgraph cluster_%s {" % name)
-                    if not CLUSTER_EDGES:
+
+                    if not self.options.block_edges:
                         self.write('%s [label="label: %s"]' % (name, name))
                     elif INV_NODES:
                         self.write('%s [shape=point height=0.02 width=0.02 color=red fixedsize=true]' % name)
+
                     if not INV_NODES:
                         self.write("}")
                 self.write()
@@ -111,17 +119,17 @@ class Graph:
             if self.options.block:
                 self.write("subgraph cluster_%s {" % block_name)
                 self.write("label=%s" % block_name)
-#            if not CLUSTER_EDGES:
+#            if not self.options.block_edges:
 #                self.write('%s [label="label: %s"]' % (block_name, block_name))
 #           elif INV_NODES:
 #               self.write('%s [shape=point]' % (b.name))
 
             # Create block entry label node and edge from it to first IR instruction
-            if not CLUSTER_EDGES or INV_NODES:
+            if not self.options.block_edges or INV_NODES:
                 attr = "[color=red]"
                 if b.name == "entry":
                     attr += "[weight=5]"
-                if CLUSTER_EDGES:
+                if self.options.block_edges:
                     attr += "[lhead=cluster_%s]" % block_name
                 if self.options.control:
                     self.edge(block_name, b.instructions[0].name, attr)
@@ -153,11 +161,11 @@ class Graph:
                             arg_val = a.name
                         if i.opcode_name == "br" and type(a) is BasicBlock:
                             # For jump targets, we jump from current node to label (arg)
-                            if CLUSTER_EDGES and not INV_NODES:
+                            if self.options.block_edges and not INV_NODES:
                                 arg_val = a.instructions[0].name
                             attrs = "[color=red]"
-                            if CLUSTER_EDGES:
-                                attrs += "[color=red][lhead=cluster_%s][arrowhead=none]" % a.name
+                            if self.options.block_edges:
+                                attrs += "[color=red][lhead=cluster_%s][ltail=cluster_%s][weight=5]" % (a.name, block_name)
                             self.edge(n, arg_val, attrs)
                         else:
                             # For data, flow is from opearnd to operation
@@ -182,6 +190,9 @@ if __name__ == "__main__":
     optparser.add_option('', '--dag-control',
         action="store_true",
         help="analyze DAGs in a basic block and draw implied control flow among them (consider using --no-control)")
+    optparser.add_option('', '--block-edges',
+        action="store_true", default=False,
+        help="(try to) draw inter-block edges between blocks, not between nodes")
 
     options, args = optparser.parse_args(sys.argv[1:])
     if len(args) != 1:
