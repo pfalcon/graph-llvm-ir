@@ -63,7 +63,7 @@ class Graph:
         self.write('label="Black edges - dataflow, red edges - control flow"')
 
     def edge(self, fro, to, extra=""):
-        self.edges.append("%s -> %s%s" % (fro, to, extra))
+        self.edges.append("\"%s\" -> \"%s\"%s" % (fro, to, extra))
 
     def block_name(self, b):
         """Returns basic block name, i.e. its entry label, or made name
@@ -97,12 +97,12 @@ class Graph:
                     name = self.block_name(b)
 #                    if not self.options.block_edges_helpers:
                     if 1:
-                        self.write("subgraph cluster_%s {" % name)
+                        self.write("subgraph \"cluster_%s\" {" % name)
 
                     if not self.options.block_edges:
-                        self.write('%s [label="label: %s"]' % (name, name))
+                        self.write('\"%s\" [label="label: \"%s\""]' % (name, name))
                     elif self.options.block_edges_helpers:
-                        self.write('%s [shape=point height=0.02 width=0.02 color=red fixedsize=true]' % name)
+                        self.write('\"%s\" [shape=point height=0.02 width=0.02 color=red fixedsize=true]' % name)
 
 #                    if not self.options.block_edges_helpers:
                     if 1:
@@ -119,12 +119,12 @@ class Graph:
             block_name = self.block_name(b)
             self.edges = []
             if self.options.block:
-                self.write("subgraph cluster_%s {" % block_name)
+                self.write("subgraph \"cluster_%s\" {" % block_name)
                 self.write("label=%s" % block_name)
 #            if not self.options.block_edges:
-#                self.write('%s [label="label: %s"]' % (block_name, block_name))
+#                self.write('\"%s\" [label="label: %s"]' % (block_name, block_name))
 #           elif self.options.block_edges_helpers:
-#               self.write('%s [shape=point]' % (b.name))
+#               self.write('\"%s\" [shape=point]' % (b.name))
 
             # Create block entry label node and edge from it to first IR instruction
             if not self.options.block_edges or self.options.block_edges_helpers:
@@ -132,9 +132,13 @@ class Graph:
                 if b.name == "entry":
                     attr += "[weight=5]"
                 if self.options.block_edges:
-                    attr += "[lhead=cluster_%s]" % block_name
+                    attr += "[lhead=\"cluster_%s\"]" % block_name
                 if self.options.control:
-                    self.edge(block_name, b.instructions[0].name, attr)
+                    if b.instructions[0].name == "":
+                        n = self.instr_name(b.instructions[0])
+                        self.edge(block_name, n, attr)
+                    else:
+                        self.edge(block_name, b.instructions[0].name, attr)
 
             if self.options.dag_control:
                 last_void_inst = block_name
@@ -148,7 +152,7 @@ class Graph:
             last_inst_name = None
             for i in b.instructions:
                 n = self.instr_name(i)
-                self.write('%s [label="%s"]' % (n, i))
+                self.write('\"%s\" [label="%s"]' % (n, i))
                 if self.options.control:
                     if last_inst_name:
                         self.edge(last_inst_name, n, "[color=red weight=2]")
@@ -158,7 +162,7 @@ class Graph:
 
                 for a in i.operands:
                         if isinstance(a, Constant) and not a.name:
-                            arg_val = '"%s"' % a
+                            arg_val = a
                         else:
                             arg_val = a.name
                         if i.opcode_name == "br" and type(a) is BasicBlock:
@@ -167,7 +171,7 @@ class Graph:
                                 arg_val = a.instructions[0].name
                             attrs = "[color=red]"
                             if self.options.block_edges:
-                                attrs += "[color=red][lhead=cluster_%s][ltail=cluster_%s][weight=5]" % (a.name, block_name)
+                                attrs += "[color=red][lhead=\"cluster_%s\"][ltail=\"cluster_%s\"][weight=5]" % (a.name, block_name)
                                 if self.options.block_edges_helpers:
                                     attrs += "[arrowhead=none]"
                             self.edge(n, arg_val, attrs)
