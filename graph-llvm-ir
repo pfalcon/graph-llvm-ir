@@ -219,7 +219,7 @@ if __name__ == "__main__":
 
     for f in mod.functions:
         if not f.is_declaration:
-            print "Writing %s.dot" % f.name
+            print("Writing %s.dot" % f.name)
             with open(f.name + ".dot", "w") as out:
                 g = Graph(f, out, options)
                 g.render()
